@@ -24,12 +24,13 @@ services:
     ports:
       - "8080:80"
 
+
   prometheus:
     image: prom/prometheus
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
+    volumes:
+      - /c/Users/ACER/Downloads/event-driven-keda-enterprisegithubactions/prometheus.yml:/etc/prometheus/prometheus.yml
 
   grafana:
     image: grafana/grafana
