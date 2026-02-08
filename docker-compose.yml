@@ -1,4 +1,3 @@
-
 version: '3'
 services:
   rabbitmq:
@@ -20,13 +19,17 @@ services:
       - rabbitmq
 
   prometheus:
-    image: prometheus/prometheus
+    image: prom/prometheus:latest
+    container_name: prometheus
     ports:
       - "9090:9090"
     volumes:
-      - ./prometheus:/etc/prometheus
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
 
   grafana:
-    image: grafana/grafana
+    image: grafana/grafana:latest
+    container_name: grafana
     ports:
       - "3001:3001"
+    depends_on:
+      - prometheus
