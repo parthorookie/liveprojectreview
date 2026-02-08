@@ -1,9 +1,8 @@
-
 name: Enterprise Production CI-CD DevSecOps Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
 
 env:
   REGISTRY: ghcr.io
@@ -11,44 +10,68 @@ env:
 
 jobs:
 
-  # ------------------- SAST -------------------
+  # ---------------- SAST (CodeQL) ----------------
   sast-codeql:
     runs-on: ubuntu-latest
     permissions:
       security-events: write
+      contents: read
+
     steps:
       - uses: actions/checkout@v4
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: javascript
+
       - name: Autobuild
         uses: github/codeql-action/autobuild@v3
+
       - name: CodeQL Analysis
         uses: github/codeql-action/analyze@v3
 
-  # ---------------- Dependency Scan ----------------
+
+  # ---------------- Dependency Scan (Snyk) ----------------
   dependency-scan:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
-      - name: Snyk Scan
-        uses: snyk/actions/node@master
+
+      - name: Snyk Scan API
+        uses: snyk/actions/node@v3
+        with:
+          command: test
+          args: --file=app/api/package.json
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+      - name: Snyk Scan Worker
+        uses: snyk/actions/node@v3
+        with:
+          command: test
+          args: --file=app/worker/package.json
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
 
   # ---------------- Secrets Scan ----------------
   secrets-scan:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
-      - name: Gitleaks
+
+      - name: Gitleaks Scan
         uses: gitleaks/gitleaks-action@v2
+
 
   # ---------------- Build + Test + Scan + Push ----------------
   build-test-scan-push:
     needs: [sast-codeql, dependency-scan, secrets-scan]
     runs-on: ubuntu-latest
+
     permissions:
       contents: read
       packages: write
@@ -83,16 +106,22 @@ jobs:
           cd app/worker
           npm test || true
 
-      - name: Sonar Scan
-        uses: SonarSource/sonarcloud-github-action@master
+      # ---------------- SonarCloud ----------------
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@v2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
             -Dsonar.projectKey=event-driven-3tier
             -Dsonar.sources=app
+            -Dsonar.organization=<your-org>
 
+      # ---------------- Docker Login ----------------
       - name: Docker login GHCR
         run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+      # ---------------- Build Images ----------------
       - name: Build API Image
         run: docker build -t ghcr.io/${{ github.repository }}/api:latest ./app/api
 
@@ -102,21 +131,23 @@ jobs:
       - name: Build Frontend Image
         run: docker build -t ghcr.io/${{ github.repository }}/frontend:latest ./app/frontend
 
+      # ---------------- Trivy Scan ----------------
       - name: Trivy scan API
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.24.0
         with:
           image-ref: ghcr.io/${{ github.repository }}/api:latest
 
       - name: Trivy scan Worker
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.24.0
         with:
           image-ref: ghcr.io/${{ github.repository }}/worker:latest
 
       - name: Trivy scan Frontend
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.24.0
         with:
           image-ref: ghcr.io/${{ github.repository }}/frontend:latest
 
+      # ---------------- Push Images ----------------
       - name: Push API image
         run: docker push ghcr.io/${{ github.repository }}/api:latest
 
@@ -126,34 +157,40 @@ jobs:
       - name: Push Frontend image
         run: docker push ghcr.io/${{ github.repository }}/frontend:latest
 
+
   # ---------------- DAST ----------------
   dast-owasp:
     needs: build-test-scan-push
     runs-on: ubuntu-latest
+
     steps:
-      - name: OWASP ZAP Scan
-        uses: zaproxy/action-baseline@v0.10.0
+      - name: OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.12.0
         with:
-          target: 'http://your-api-url'
+          target: "http://your-api-url"
+
 
   # ---------------- Policy Gates ----------------
   policy-gates:
     needs: dast-owasp
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - name: OPA Conftest policy check
-        uses: instrumenta/conftest-action@master
+        uses: instrumenta/conftest-action@v0.3.0
         with:
           files: helm-charts/
+
 
   # ---------------- GitOps Trigger ----------------
   gitops-update:
     needs: policy-gates
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout infra repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Update Helm Image Tags
         run: |
