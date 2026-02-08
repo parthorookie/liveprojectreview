@@ -39,16 +39,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # API
       - name: Snyk Scan API
-        uses: snyk/actions/node@v3
+        uses: snyk/actions/node@v1
         with:
           command: test
           args: --file=app/api/package.json
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
+      # Worker
       - name: Snyk Scan Worker
-        uses: snyk/actions/node@v3
+        uses: snyk/actions/node@v1
         with:
           command: test
           args: --file=app/worker/package.json
@@ -59,10 +61,8 @@ jobs:
   # ---------------- Secrets Scan ----------------
   secrets-scan:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
       - name: Gitleaks Scan
         uses: gitleaks/gitleaks-action@v2
 
@@ -73,13 +73,12 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: read
+      contents: write
       packages: write
       security-events: write
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -87,24 +86,20 @@ jobs:
           node-version: 18
 
       - name: Install API dependencies
-        run: |
-          cd app/api
-          npm install
+        working-directory: app/api
+        run: npm install
 
       - name: Install Worker dependencies
-        run: |
-          cd app/worker
-          npm install
+        working-directory: app/worker
+        run: npm install
 
       - name: Run API tests
-        run: |
-          cd app/api
-          npm test || true
+        working-directory: app/api
+        run: npm test || true
 
       - name: Run Worker tests
-        run: |
-          cd app/worker
-          npm test || true
+        working-directory: app/worker
+        run: npm test || true
 
       # ---------------- SonarCloud ----------------
       - name: SonarCloud Scan
@@ -115,7 +110,7 @@ jobs:
           args: >
             -Dsonar.projectKey=event-driven-3tier
             -Dsonar.sources=app
-            -Dsonar.organization=<your-org>
+            -Dsonar.organization=rookiep
 
       # ---------------- Docker Login ----------------
       - name: Docker login GHCR
@@ -167,7 +162,7 @@ jobs:
       - name: OWASP ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.12.0
         with:
-          target: "http://your-api-url"
+          target: "http://localhost:3000"
 
 
   # ---------------- Policy Gates ----------------
@@ -177,7 +172,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - name: OPA Conftest policy check
         uses: instrumenta/conftest-action@v0.3.0
         with:
@@ -203,5 +197,5 @@ jobs:
           git config --global user.name "github-actions"
           git config --global user.email "actions@github.com"
           git add .
-          git commit -m "Update image tags from CI"
+          git commit -m "Update image tags from CI" || echo "No changes"
           git push
