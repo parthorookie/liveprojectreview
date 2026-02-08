@@ -20,7 +20,7 @@ services:
       - rabbitmq
 
   prometheus:
-    image: prom/prometheus
+    image: prometheus/prometheus
     ports:
       - "9090:9090"
     volumes:
