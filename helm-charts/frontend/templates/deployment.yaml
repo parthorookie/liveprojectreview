@@ -1,33 +1,33 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: api
+  name: frontend
   labels:
-    app: api
+    app: frontend
 
 spec:
   replicas: 1
 
   selector:
     matchLabels:
-      app: api
+      app: frontend
 
   template:
     metadata:
       labels:
-        app: api
+        app: frontend
 
     spec:
       imagePullSecrets:
-        - name: ghcr-secret   # secret you created for GHCR
+        - name: ghcr-secret   # GitHub Container Registry secret
 
       containers:
-        - name: api
-          image: ghcr.io/parthorookie/event-driven-keda-enterprisegithubactions/api:latest
+        - name: frontend
+          image: ghcr.io/parthorookie/event-driven-keda-enterprisegithubactions/frontend:latest
           imagePullPolicy: Always
 
           ports:
-            - containerPort: 3001
+            - containerPort: 3000   # frontend port
 
           resources:
             requests:
@@ -39,14 +39,14 @@ spec:
 
           readinessProbe:
             httpGet:
-              path: /health
-              port: 3001
+              path: /
+              port: 3000
             initialDelaySeconds: 10
             periodSeconds: 5
 
           livenessProbe:
             httpGet:
-              path: /health
-              port: 3001
+              path: /
+              port: 3000
             initialDelaySeconds: 20
             periodSeconds: 10

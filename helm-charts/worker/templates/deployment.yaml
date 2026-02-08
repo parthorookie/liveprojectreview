@@ -1,33 +1,37 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: api
+  name: worker
   labels:
-    app: api
+    app: worker
 
 spec:
   replicas: 1
 
   selector:
     matchLabels:
-      app: api
+      app: worker
 
   template:
     metadata:
       labels:
-        app: api
+        app: worker
 
     spec:
       imagePullSecrets:
-        - name: ghcr-secret   # secret you created for GHCR
+        - name: ghcr-secret   # GitHub Container Registry secret
 
       containers:
-        - name: api
-          image: ghcr.io/parthorookie/event-driven-keda-enterprisegithubactions/api:latest
+        - name: worker
+          image: ghcr.io/parthorookie/event-driven-keda-enterprisegithubactions/worker:latest
           imagePullPolicy: Always
 
-          ports:
-            - containerPort: 3003
+          # Workers usually don't expose ports
+          # Remove containerPort unless your worker runs an HTTP server
+
+          env:
+            - name: RABBITMQ_URL
+              value: amqp://rabbitmq:5672
 
           resources:
             requests:
@@ -36,17 +40,3 @@ spec:
             limits:
               cpu: "300m"
               memory: "256Mi"
-
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: 3003
-            initialDelaySeconds: 10
-            periodSeconds: 5
-
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 3003
-            initialDelaySeconds: 20
-            periodSeconds: 10
