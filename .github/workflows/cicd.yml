@@ -114,7 +114,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
-            -Dsonar.projectKey=parthorookie_event-driven-keda-enterprisegithubactions
+            -Dsonar.projectKey=parthorookie_liveprojectreview
             -Dsonar.organization=parthorookie
             -Dsonar.sources=app
 
